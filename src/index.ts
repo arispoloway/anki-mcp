@@ -1,76 +1,18 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  SearchNotesParams,
-  RecentlyLearnedParams,
-  StrugglingNotesParams,
-  UpdateTagsParams,
-  CreatePracticeNoteParams,
-  handleSearchNotes,
-  handleRecentlyLearned,
-  handleStrugglingNotes,
-  handleUpdateTags,
-  handleListPracticeNotes,
-  handleCreatePracticeNote,
-} from "./tools.js";
+import { generateAllTools } from "./tools.js";
 import { syncIfStale } from "./sync.js";
 
 const server = new McpServer({
   name: "chinese-anki",
-  version: "1.0.0",
+  version: "2.0.0",
 });
 
-server.tool(
-  "search_notes",
-  "Search Chinese vocabulary notes using Anki query syntax. " +
-    "The deck filter is applied automatically — just provide the search terms. " +
-    "Returns hanzi by default — only request extra fields via 'include' if needed. " +
-    "Examples: 'is:new', 'tag:word', 'tag:sentence', '吃', 'added:7', 'is:due'.",
-  SearchNotesParams,
-  handleSearchNotes
-);
-
-server.tool(
-  "recently_learned",
-  "Get notes that were first studied recently. " +
-    "Returns hanzi by default — only request extra fields via 'include' if needed.",
-  RecentlyLearnedParams,
-  handleRecentlyLearned
-);
-
-server.tool(
-  "struggling_notes",
-  "Get notes the user is struggling with — high lapse count or low ease. " +
-    "Returns hanzi plus interval/ease/lapses/reps stats by default — only request extra fields via 'include' if needed.",
-  StrugglingNotesParams,
-  handleStrugglingNotes
-);
-
-server.tool(
-  "update_tags",
-  "Add or remove tags on one or more notes by note ID.",
-  UpdateTagsParams,
-  handleUpdateTags
-);
-
-server.tool(
-  "list_practice_notes",
-  "List all practice sentences in the generated practice deck. " +
-    "Returns a flat list of hanzi strings.",
-  {},
-  handleListPracticeNotes
-);
-
-server.tool(
-  "create_practice_note",
-  "Create a new practice note in the generated practice deck. " +
-    "Provide hanzi, pinyin, and english. " +
-    "Use this for AI-generated sentences the user hasn't seen before. " +
-    "Tags are assigned automatically.",
-  CreatePracticeNoteParams,
-  handleCreatePracticeNote
-);
+// Register all tools dynamically from config
+for (const tool of generateAllTools()) {
+  server.tool(tool.name, tool.description, tool.params, tool.handler);
+}
 
 async function main() {
   const transport = new StdioServerTransport();

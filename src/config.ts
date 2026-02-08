@@ -4,26 +4,87 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-interface Config {
+// ── Preset parameter definition ──
+
+export interface PresetParameter {
+  type: "number" | "string";
+  description: string;
+  default: number | string;
+}
+
+// ── Search preset ──
+
+export interface Preset {
+  /** Tool name exposed via MCP (e.g. "search_notes"). Must be unique. */
+  name: string;
+  /** Tool description shown to the model. */
+  description: string;
+  /**
+   * Base Anki query. May contain ${paramName} placeholders that are
+   * substituted at runtime from the preset's `parameters` definitions.
+   */
+  baseQuery: string;
+  /** Anki note type (model name) used for field lookups. */
+  noteType: string;
+  /**
+   * Custom parameters interpolated into baseQuery.
+   * Each key becomes a tool parameter with the given type/description/default.
+   */
+  parameters?: Record<string, PresetParameter>;
+  /**
+   * If non-empty, the tool exposes a `search` string parameter.
+   * The search string is expanded to (Field1:*term* OR Field2:*term*)
+   * and appended to the base query.
+   */
+  searchFields: string[];
+  /** Extra description for the search parameter, shown to the model. */
+  searchDescription?: string;
+  /** Note fields always included in the response. */
+  defaultReturnedFields: string[];
+  /** Note fields that can be opted into via an `include` parameter. */
+  optionalReturnedFields: string[];
+  /** Whether tags can be opted in via `include`. */
+  optionalReturnedTags?: boolean;
+  /** Whether to fetch and return card-level scheduling data (interval, ease, lapses, reps). */
+  includeSchedulingData?: boolean;
+  /** Default number of results per page. */
+  defaultLimit: number;
+  /** Default sort order for this tool. */
+  defaultSort: string;
+  /** Allowed sort options (exposed as a string enum to the model). */
+  sortOptions: string[];
+}
+
+// ── Practice note config ──
+
+export interface PracticeFieldConfig {
+  /** Anki field name exactly as it appears in the note type. */
+  name: string;
+  /** Description shown to the model for this parameter. */
+  description: string;
+  /** Whether the model must provide a value for this field. */
+  required: boolean;
+}
+
+export interface PracticeNotesConfig {
+  /** Anki deck name for generated practice notes. */
+  deckName: string;
+  /** Anki note type (model name). */
+  noteType: string;
+  /** Tool description shown to the model. */
+  description: string;
+  /** Fields on the note type, in order. Required ones become required tool params. */
+  fields: PracticeFieldConfig[];
+  /** Tag automatically applied to every created practice note. */
+  defaultTag: string;
+}
+
+// ── Top-level config ──
+
+export interface Config {
   ankiConnect: {
     url: string;
     version: number;
-  };
-  deck: {
-    name: string;
-    generatedSubdeck: string;
-  };
-  noteType: {
-    name: string;
-    fields: {
-      hanzi: string;
-      color: string;
-      pinyin: string;
-      english: string;
-      sound: string;
-      includeAudioCard: string;
-      notes: string;
-    };
   };
   sync: {
     syncIntervalSeconds: number;
@@ -31,15 +92,8 @@ interface Config {
   tags: {
     allowed: string[];
   };
-  generatedPractice: {
-    defaultTag: string;
-  };
-  defaults: {
-    recentDays: number;
-    maxResults: number;
-    struggleLapsesThreshold: number;
-    struggleEaseThreshold: number;
-  };
+  presets: Preset[];
+  practiceNotes: PracticeNotesConfig;
 }
 
 const raw = readFileSync(join(__dirname, "..", "config.json"), "utf-8");

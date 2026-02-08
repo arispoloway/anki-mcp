@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { config } from "./config.js";
+import type { Preset, PracticeNotesConfig } from "./config.js";
 import {
   addNote,
   addTags,
@@ -9,80 +10,13 @@ import {
   notesInfo,
 } from "./anki-client.js";
 import {
+  buildQuery,
   searchNotes,
   searchCardsWithScheduling,
   stripHtml,
-  type SortOrder,
+  type IncludeFlags,
 } from "./helpers.js";
 import { syncIfStale } from "./sync.js";
-
-// ── Shared include-field toggles ──
-
-const includeSchema = z.object({
-  noteId: z.boolean().optional().describe("Include note IDs"),
-  pinyin: z.boolean().optional().describe("Include pinyin"),
-  english: z.boolean().optional().describe("Include english translation"),
-  tags: z.boolean().optional().describe("Include tags"),
-}).optional().describe("Extra fields to include beyond hanzi. Only request fields you need to keep responses compact.");
-
-type IncludeArg = {
-  include?: { noteId?: boolean; pinyin?: boolean; english?: boolean; tags?: boolean };
-};
-
-// ── Zod schemas for each tool's parameters ──
-
-const sortSchema = z.enum(["added_asc", "added_desc", "modified_asc", "modified_desc"])
-  .optional()
-  .describe("Sort order: added_asc/added_desc (by creation date), modified_asc/modified_desc (by last edit)");
-
-const allowedTagsEnum = config.tags.allowed as [string, ...string[]];
-
-const pageSchema = z.number().optional().describe("Page number (default 1). Use with limit for pagination.");
-
-export const SearchNotesParams = {
-  query: z.string().describe(
-    "Anki search query (deck filter is auto-added). " +
-    "Syntax: simple text searches any field. " +
-    `Tags: ${allowedTagsEnum.map(t => `tag:${t}`).join(", ")}, -tag:none. ` +
-    "Card state: is:new, is:due, is:learn, is:review, is:suspended. " +
-    "Time filters: added:N (added in last N days), introduced:N (first studied in last N days), rated:N (reviewed in last N days), rated:N:1 (answered Again in last N days). " +
-    "Properties: prop:due=0 (due today), prop:due=-1 (overdue 1 day), prop:ivl>=10 (interval 10+ days), prop:lapses>3, prop:ease<2.0. " +
-    "Field search: Hanzi:你好, English:hello. " +
-    "Regex: re:pattern. Wildcards: d*g, d_g. " +
-    "Boolean: term1 term2 (AND), term1 or term2 (OR), -term (NOT), (a or b) c (grouping)."
-  ),
-  limit: z.number().optional().describe("Results per page (default 50)"),
-  page: pageSchema,
-  sort: sortSchema,
-  include: includeSchema,
-};
-
-export const RecentlyLearnedParams = {
-  days: z.number().optional().describe("How many days back to look (default 14)"),
-  limit: z.number().optional().describe("Results per page (default 50)"),
-  page: pageSchema,
-  sort: sortSchema,
-  include: includeSchema,
-};
-
-export const StrugglingNotesParams = {
-  limit: z.number().optional().describe("Results per page (default 50)"),
-  page: pageSchema,
-  sort: sortSchema,
-  include: includeSchema,
-};
-
-export const UpdateTagsParams = {
-  noteIds: z.array(z.number()).describe("Note IDs to update"),
-  add: z.array(z.enum(allowedTagsEnum)).optional().describe(`Tags to add (allowed: ${allowedTagsEnum.join(", ")})`),
-  remove: z.array(z.enum(allowedTagsEnum)).optional().describe(`Tags to remove (allowed: ${allowedTagsEnum.join(", ")})`),
-};
-
-export const CreatePracticeNoteParams = {
-  hanzi: z.string().describe("Chinese characters"),
-  pinyin: z.string().describe("Pinyin with tone marks"),
-  english: z.string().describe("English translation"),
-};
 
 // ── Tool result helpers ──
 
@@ -94,91 +28,233 @@ function textResult(data: unknown): ToolResult {
   };
 }
 
-// ── Handlers ──
+// ── Dynamic preset tool generation ──
 
-type SortArg = { sort?: SortOrder };
-type PageArg = { page?: number };
-
-export async function handleSearchNotes(args: {
-  query: string;
-  limit?: number;
-} & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
-  await syncIfStale();
-  const result = await searchNotes(args.query, args.limit, args.include, args.sort, args.page);
-  return textResult(result);
+export interface GeneratedTool {
+  name: string;
+  description: string;
+  params: Record<string, z.ZodTypeAny>;
+  handler: (args: Record<string, unknown>) => Promise<ToolResult>;
 }
 
-export async function handleRecentlyLearned(args: {
-  days?: number;
-  limit?: number;
-} & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
-  await syncIfStale();
-  const days = args.days ?? config.defaults.recentDays;
-  const result = await searchNotes(`introduced:${days}`, args.limit, args.include, args.sort, args.page);
-  return textResult(result);
-}
+function buildPresetTool(preset: Preset): GeneratedTool {
+  const params: Record<string, z.ZodTypeAny> = {};
 
-export async function handleStrugglingNotes(args: {
-  limit?: number;
-} & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
-  await syncIfStale();
-  const { struggleLapsesThreshold, struggleEaseThreshold } = config.defaults;
-  const query = `(prop:lapses>${struggleLapsesThreshold} or prop:ease<${struggleEaseThreshold}) is:review`;
-  const result = await searchCardsWithScheduling(query, args.limit, args.include, args.page);
-  result.notes.sort((a, b) => b.lapses - a.lapses);
-  return textResult(result);
-}
-
-export async function handleUpdateTags(args: {
-  noteIds: number[];
-  add?: string[];
-  remove?: string[];
-}): Promise<ToolResult> {
-  await syncIfStale();
-  if (args.add?.length) {
-    await addTags(args.noteIds, args.add.join(" "));
+  // Custom parameters (e.g. "days" for recently_learned)
+  if (preset.parameters) {
+    for (const [key, def] of Object.entries(preset.parameters)) {
+      if (def.type === "number") {
+        params[key] = z.number().optional().describe(
+          `${def.description} (default ${def.default})`
+        );
+      } else {
+        params[key] = z.string().optional().describe(
+          `${def.description} (default "${def.default}")`
+        );
+      }
+    }
   }
-  if (args.remove?.length) {
-    await removeTags(args.noteIds, args.remove.join(" "));
+
+  // Search parameter (only if searchFields is non-empty)
+  if (preset.searchFields.length > 0) {
+    const fieldList = preset.searchFields.join(", ");
+    const desc = preset.searchDescription ??
+      `Free-text search across ${fieldList}. Leave empty to return all results matching the base query.`;
+    params.search = z.string().optional().describe(desc);
   }
-  return textResult({
-    success: true,
-    noteIds: args.noteIds,
-    added: args.add ?? [],
-    removed: args.remove ?? [],
-  });
-}
 
-export async function handleListPracticeNotes(): Promise<ToolResult> {
-  await syncIfStale();
-  const noteIds = await findNotes(`"deck:${config.deck.generatedSubdeck}"`);
-  if (noteIds.length === 0) return textResult([]);
-  const infos = await notesInfo(noteIds);
-  const { fields } = config.noteType;
-  return textResult(infos.map((n) => stripHtml(n.fields[fields.hanzi]?.value ?? "")));
-}
+  // Include parameter — built from optionalReturnedFields
+  if (preset.optionalReturnedFields.length > 0 || preset.optionalReturnedTags) {
+    const shape: Record<string, z.ZodTypeAny> = {
+      noteId: z.boolean().optional().describe("Include note IDs"),
+    };
+    for (const field of preset.optionalReturnedFields) {
+      shape[field] = z.boolean().optional().describe(`Include ${field}`);
+    }
+    if (preset.optionalReturnedTags) {
+      shape.tags = z.boolean().optional().describe("Include tags");
+    }
+    params.include = z.object(shape).optional().describe(
+      "Extra fields to include beyond the defaults. Only request fields you need to keep responses compact."
+    );
+  }
 
-export async function handleCreatePracticeNote(args: {
-  hanzi: string;
-  pinyin: string;
-  english: string;
-}): Promise<ToolResult> {
-  await syncIfStale();
-  const tags = [config.generatedPractice.defaultTag];
-  const { noteType, deck } = config;
+  // Sort parameter
+  if (preset.sortOptions.length > 0) {
+    const sortEnum = preset.sortOptions as [string, ...string[]];
+    params.sort = z.enum(sortEnum).optional().describe(
+      `Sort order (default: ${preset.defaultSort})`
+    );
+  }
 
-  await createDeck(deck.generatedSubdeck);
+  // Pagination
+  params.limit = z.number().optional().describe(
+    `Results per page (default ${preset.defaultLimit})`
+  );
+  params.page = z.number().optional().describe(
+    "Page number (default 1). Use with limit for pagination."
+  );
 
-  const fields: Record<string, string> = {
-    [noteType.fields.hanzi]: args.hanzi,
-    [noteType.fields.pinyin]: args.pinyin,
-    [noteType.fields.english]: args.english,
-    [noteType.fields.color]: "",
-    [noteType.fields.sound]: "",
-    [noteType.fields.includeAudioCard]: "",
-    [noteType.fields.notes]: "",
+  // Handler
+  const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
+    await syncIfStale();
+
+    const customParams: Record<string, unknown> = {};
+    if (preset.parameters) {
+      for (const key of Object.keys(preset.parameters)) {
+        if (args[key] !== undefined) customParams[key] = args[key];
+      }
+    }
+
+    const query = buildQuery(preset, customParams, args.search as string | undefined);
+    const limit = (args.limit as number | undefined) ?? preset.defaultLimit;
+    const page = (args.page as number | undefined) ?? 1;
+    const sort = (args.sort as string | undefined) ?? preset.defaultSort;
+    const include = args.include as IncludeFlags | undefined;
+
+    if (preset.includeSchedulingData) {
+      const result = await searchCardsWithScheduling(
+        query, preset.defaultReturnedFields, limit, page, include, sort
+      );
+      return textResult(result);
+    }
+
+    const result = await searchNotes(
+      query, preset.defaultReturnedFields, limit, page, include, sort
+    );
+    return textResult(result);
   };
 
-  const noteId = await addNote(deck.generatedSubdeck, noteType.name, fields, tags);
-  return textResult({ success: true, noteId, hanzi: args.hanzi, pinyin: args.pinyin, english: args.english, tags });
+  return { name: preset.name, description: preset.description, params, handler };
+}
+
+// ── Practice note tool generation ──
+
+function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
+  const tools: GeneratedTool[] = [];
+
+  // create_practice_note
+  {
+    const params: Record<string, z.ZodTypeAny> = {};
+    for (const field of cfg.fields) {
+      if (field.required) {
+        params[field.name] = z.string().describe(field.description);
+      } else {
+        params[field.name] = z.string().optional().describe(field.description);
+      }
+    }
+
+    const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
+      await syncIfStale();
+      const tags = [cfg.defaultTag];
+
+      await createDeck(cfg.deckName);
+
+      const fields: Record<string, string> = {};
+      for (const field of cfg.fields) {
+        fields[field.name] = (args[field.name] as string | undefined) ?? "";
+      }
+
+      const noteId = await addNote(cfg.deckName, cfg.noteType, fields, tags);
+
+      // Return the provided field values for confirmation
+      const response: Record<string, unknown> = { success: true, noteId, tags };
+      for (const field of cfg.fields) {
+        if (args[field.name]) response[field.name] = args[field.name];
+      }
+      return textResult(response);
+    };
+
+    tools.push({
+      name: "create_practice_note",
+      description: cfg.description,
+      params,
+      handler,
+    });
+  }
+
+  // list_practice_notes
+  {
+    const handler = async (): Promise<ToolResult> => {
+      await syncIfStale();
+      const noteIds = await findNotes(`"deck:${cfg.deckName}"`);
+      if (noteIds.length === 0) return textResult([]);
+      const infos = await notesInfo(noteIds);
+      // Return the first required field (typically Hanzi) as a flat list
+      const primaryField = cfg.fields.find((f) => f.required)?.name ?? cfg.fields[0].name;
+      return textResult(infos.map((n) => stripHtml(n.fields[primaryField]?.value ?? "")));
+    };
+
+    tools.push({
+      name: "list_practice_notes",
+      description: `List all practice notes in the ${cfg.deckName} deck. Returns a flat list of ${cfg.fields.find((f) => f.required)?.name ?? "primary field"} values.`,
+      params: {},
+      handler,
+    });
+  }
+
+  return tools;
+}
+
+// ── Tag tool (stays largely the same) ──
+
+function buildUpdateTagsTool(): GeneratedTool {
+  const allowedTagsEnum = config.tags.allowed as [string, ...string[]];
+
+  const params: Record<string, z.ZodTypeAny> = {
+    noteIds: z.array(z.number()).describe("Note IDs to update"),
+    add: z.array(z.enum(allowedTagsEnum)).optional().describe(
+      `Tags to add (allowed: ${config.tags.allowed.join(", ")})`
+    ),
+    remove: z.array(z.enum(allowedTagsEnum)).optional().describe(
+      `Tags to remove (allowed: ${config.tags.allowed.join(", ")})`
+    ),
+  };
+
+  const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
+    await syncIfStale();
+    const noteIds = args.noteIds as number[];
+    const add = args.add as string[] | undefined;
+    const remove = args.remove as string[] | undefined;
+
+    if (add?.length) {
+      await addTags(noteIds, add.join(" "));
+    }
+    if (remove?.length) {
+      await removeTags(noteIds, remove.join(" "));
+    }
+
+    return textResult({
+      success: true,
+      noteIds,
+      added: add ?? [],
+      removed: remove ?? [],
+    });
+  };
+
+  return {
+    name: "update_tags",
+    description: "Add or remove tags on one or more notes by note ID.",
+    params,
+    handler,
+  };
+}
+
+// ── Public: generate all tools from config ──
+
+export function generateAllTools(): GeneratedTool[] {
+  const tools: GeneratedTool[] = [];
+
+  // Preset-driven query tools
+  for (const preset of config.presets) {
+    tools.push(buildPresetTool(preset));
+  }
+
+  // Practice note tools
+  tools.push(...buildPracticeTools(config.practiceNotes));
+
+  // Tag management
+  tools.push(buildUpdateTagsTool());
+
+  return tools;
 }

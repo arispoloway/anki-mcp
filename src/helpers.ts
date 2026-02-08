@@ -1,110 +1,175 @@
 import { config } from "./config.js";
+import type { Preset } from "./config.js";
 import {
   findNotes,
   notesInfo,
   findCards,
   cardsInfo,
   type NoteInfo,
-  type CardInfo,
 } from "./anki-client.js";
 
-const { fields } = config.noteType;
+// ── HTML / comment stripping ──
 
-/** Strip all HTML tags from a string. */
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 }
 
-/** Strip HTML comment annotations like <!-- pinyin --> from pinyin fields. */
 function stripComments(s: string): string {
   return s.replace(/<!--.*?-->/g, "").trim();
 }
 
-/** Options controlling which fields appear in compact output. */
-export interface IncludeFields {
+function cleanFieldValue(raw: string): string {
+  return stripComments(stripHtml(raw));
+}
+
+// ── Generic note formatting ──
+
+export interface IncludeFlags {
+  [fieldName: string]: boolean | undefined;
   noteId?: boolean;
-  pinyin?: boolean;
-  english?: boolean;
   tags?: boolean;
 }
 
-/** Compact note representation for tool output. */
-export interface CompactNote {
-  noteId?: number;
-  hanzi: string;
-  pinyin?: string;
-  english?: string;
-  tags?: string[];
-}
+export type CompactNote = Record<string, unknown>;
 
-/** Convert a raw NoteInfo to a compact representation with HTML stripped. */
-export function toCompact(n: NoteInfo, include?: IncludeFields): CompactNote {
-  const result: CompactNote = {
-    hanzi: stripHtml(n.fields[fields.hanzi]?.value ?? ""),
-  };
+/**
+ * Convert a NoteInfo into a compact object based on which fields to return.
+ * `defaultFields` are always included; `include` toggles optional fields.
+ */
+export function toCompact(
+  n: NoteInfo,
+  defaultFields: string[],
+  include?: IncludeFlags
+): CompactNote {
+  const result: CompactNote = {};
+
   if (include?.noteId) result.noteId = n.noteId;
-  if (include?.pinyin) result.pinyin = stripComments(stripHtml(n.fields[fields.pinyin]?.value ?? ""));
-  if (include?.english) result.english = stripHtml(n.fields[fields.english]?.value ?? "");
+
+  for (const field of defaultFields) {
+    result[field] = cleanFieldValue(n.fields[field]?.value ?? "");
+  }
+
+  if (include) {
+    for (const [key, on] of Object.entries(include)) {
+      if (!on) continue;
+      if (key === "noteId" || key === "tags") continue; // handled separately
+      // It's an optional note field name
+      if (n.fields[key]) {
+        result[key] = cleanFieldValue(n.fields[key].value ?? "");
+      }
+    }
+  }
+
   if (include?.tags) result.tags = n.tags;
+
   return result;
 }
 
-/** Prefix a user query with the deck filter. */
-export function deckQuery(extra: string): string {
-  return `"deck:${config.deck.name}" ${extra}`.trim();
+// ── Sorting ──
+
+export type SortOrder = string; // validated at the Zod level per-preset
+
+function sortNoteIds(ids: number[], sort: string): number[] {
+  if (sort === "added_asc") return [...ids].sort((a, b) => a - b);
+  if (sort === "added_desc") return [...ids].sort((a, b) => b - a);
+  return ids; // other sorts happen after fetching full info
 }
 
-export type SortOrder = "added_asc" | "added_desc" | "modified_asc" | "modified_desc";
+function sortNoteInfos(infos: NoteInfo[], sort: string, orderedIds?: number[]): void {
+  if (sort === "modified_asc") {
+    infos.sort((a, b) => a.mod - b.mod);
+  } else if (sort === "modified_desc") {
+    infos.sort((a, b) => b.mod - a.mod);
+  } else if ((sort === "added_asc" || sort === "added_desc") && orderedIds) {
+    const order = new Map(orderedIds.map((id, i) => [id, i]));
+    infos.sort((a, b) => (order.get(a.noteId) ?? 0) - (order.get(b.noteId) ?? 0));
+  }
+}
 
-/** Result set with pagination metadata. */
+// ── Pagination ──
+
 export interface PaginatedResult<T> {
   total: number;
+  page: number;
   hasMore: boolean;
   notes: T[];
 }
 
-/** Find notes in the Chinese deck and return compact representations. */
-export async function searchNotes(
-  query: string,
-  limit?: number,
-  include?: IncludeFields,
-  sort?: SortOrder,
-  page?: number
-): Promise<PaginatedResult<CompactNote>> {
-  const noteIds = await findNotes(deckQuery(query));
-  const total = noteIds.length;
-  // noteIds from Anki are creation-time timestamps in ms — sort before capping.
-  let sorted = noteIds;
-  if (sort === "added_asc" || sort === "added_desc") {
-    sorted = [...noteIds].sort((a, b) =>
-      sort === "added_asc" ? a - b : b - a
-    );
-  }
-  const effectiveLimit = limit ?? config.defaults.maxResults;
-  const effectivePage = Math.max(1, page ?? 1);
-  const start = (effectivePage - 1) * effectiveLimit;
-  const paged = effectiveLimit > 0
-    ? sorted.slice(start, start + effectiveLimit)
-    : sorted;
-  if (paged.length === 0) return { total, hasMore: false, notes: [] };
-  const infos = await notesInfo(paged);
-
-  // For modified sorts, sort after fetching note info.
-  if (sort === "modified_asc" || sort === "modified_desc") {
-    infos.sort((a, b) =>
-      sort === "modified_asc" ? a.mod - b.mod : b.mod - a.mod
-    );
-  } else if (sort === "added_asc" || sort === "added_desc") {
-    // Preserve the pre-sorted noteId order.
-    const order = new Map(paged.map((id, i) => [id, i]));
-    infos.sort((a, b) => (order.get(a.noteId) ?? 0) - (order.get(b.noteId) ?? 0));
-  }
-
-  const notes = infos.map((n) => toCompact(n, include));
-  return { total, hasMore: start + paged.length < total, notes };
+function paginate<T>(items: T[], limit: number, page: number): PaginatedResult<T> {
+  const effectivePage = Math.max(1, page);
+  const start = (effectivePage - 1) * limit;
+  const notes = limit > 0 ? items.slice(start, start + limit) : items;
+  return {
+    total: items.length,
+    page: effectivePage,
+    hasMore: start + notes.length < items.length,
+    notes,
+  };
 }
 
-/** Card-level info enriched with scheduling data, for "struggling" queries. */
+// ── Query building ──
+
+/**
+ * Build the search query for a preset, interpolating custom parameters
+ * and appending the optional free-text search expansion.
+ */
+export function buildQuery(
+  preset: Preset,
+  customParams: Record<string, unknown>,
+  searchTerm?: string
+): string {
+  let query = preset.baseQuery;
+
+  // Interpolate ${paramName} placeholders from custom parameters
+  if (preset.parameters) {
+    for (const [key, def] of Object.entries(preset.parameters)) {
+      const value = customParams[key] ?? def.default;
+      query = query.replace(`\${${key}}`, String(value));
+    }
+  }
+
+  // Expand free-text search across configured fields
+  if (searchTerm && searchTerm.trim() && preset.searchFields.length > 0) {
+    const term = searchTerm.trim();
+    const clauses = preset.searchFields.map((f) => `${f}:*${term}*`);
+    const expansion = clauses.length === 1 ? clauses[0] : `(${clauses.join(" OR ")})`;
+    query = `${query} ${expansion}`;
+  }
+
+  return query.trim();
+}
+
+// ── Main search function (note-level) ──
+
+export async function searchNotes(
+  query: string,
+  defaultFields: string[],
+  limit: number,
+  page: number,
+  include?: IncludeFlags,
+  sort?: string
+): Promise<PaginatedResult<CompactNote>> {
+  const noteIds = await findNotes(query);
+
+  // Pre-sort IDs for added_* sorts (noteIds ≈ creation timestamps)
+  const sorted = sort ? sortNoteIds(noteIds, sort) : noteIds;
+
+  // Paginate IDs before fetching full info (avoids fetching everything)
+  const { notes: pagedIds, ...meta } = paginate(sorted, limit, page);
+
+  if (pagedIds.length === 0) return { ...meta, notes: [] };
+
+  const infos = await notesInfo(pagedIds);
+
+  // Post-fetch sorts (modified, or preserving pre-sort order)
+  if (sort) sortNoteInfos(infos, sort, pagedIds);
+
+  const notes = infos.map((n) => toCompact(n, defaultFields, include));
+  return { ...meta, notes };
+}
+
+// ── Card-level search with scheduling data ──
+
 export interface CardWithScheduling extends CompactNote {
   interval: number;
   ease: number;
@@ -112,37 +177,54 @@ export interface CardWithScheduling extends CompactNote {
   reps: number;
 }
 
-/** Find cards in the Chinese deck, return note fields + scheduling info. */
 export async function searchCardsWithScheduling(
   query: string,
-  limit?: number,
-  include?: IncludeFields,
-  page?: number
+  defaultFields: string[],
+  limit: number,
+  page: number,
+  include?: IncludeFlags,
+  sort?: string
 ): Promise<PaginatedResult<CardWithScheduling>> {
-  const cardIds = await findCards(deckQuery(query));
-  // Deduplicate by noteId — need all cards to count unique notes accurately.
+  const cardIds = await findCards(query);
   const allInfos = cardIds.length > 0 ? await cardsInfo(cardIds) : [];
+
+  // Deduplicate by note ID
   const seen = new Set<number>();
   const allResults: CardWithScheduling[] = [];
   for (const c of allInfos) {
     if (seen.has(c.note)) continue;
     seen.add(c.note);
+
     const note: CardWithScheduling = {
-      hanzi: stripHtml(c.fields[fields.hanzi]?.value ?? ""),
       interval: c.interval,
       ease: c.ease,
       lapses: c.lapses,
       reps: c.reps,
     };
+
     if (include?.noteId) note.noteId = c.note;
-    if (include?.pinyin) note.pinyin = stripComments(stripHtml(c.fields[fields.pinyin]?.value ?? ""));
-    if (include?.english) note.english = stripHtml(c.fields[fields.english]?.value ?? "");
+
+    for (const field of defaultFields) {
+      note[field] = cleanFieldValue(c.fields[field]?.value ?? "");
+    }
+
+    if (include) {
+      for (const [key, on] of Object.entries(include)) {
+        if (!on || key === "noteId" || key === "tags") continue;
+        if (c.fields[key]) {
+          note[key] = cleanFieldValue(c.fields[key].value ?? "");
+        }
+      }
+    }
+
     allResults.push(note);
   }
-  const total = allResults.length;
-  const effectiveLimit = limit ?? config.defaults.maxResults;
-  const effectivePage = Math.max(1, page ?? 1);
-  const start = (effectivePage - 1) * effectiveLimit;
-  const notes = effectiveLimit > 0 ? allResults.slice(start, start + effectiveLimit) : allResults;
-  return { total, hasMore: start + notes.length < total, notes };
+
+  // Apply scheduling-aware sorts
+  if (sort === "lapses_desc") allResults.sort((a, b) => b.lapses - a.lapses);
+  else if (sort === "lapses_asc") allResults.sort((a, b) => a.lapses - b.lapses);
+  else if (sort === "ease_asc") allResults.sort((a, b) => a.ease - b.ease);
+  else if (sort === "ease_desc") allResults.sort((a, b) => b.ease - a.ease);
+
+  return paginate(allResults, limit, page);
 }

@@ -3,35 +3,75 @@
     "url": "http://127.0.0.1:8765",
     "version": 6
   },
-  "deck": {
-    "name": "Chinese",
-    "generatedSubdeck": "GeneratedPractice"
-  },
-  "noteType": {
-    "name": "Chinese (Basic)",
-    "fields": {
-      "hanzi": "Hanzi",
-      "color": "Color",
-      "pinyin": "Pinyin",
-      "english": "English",
-      "sound": "Sound",
-      "includeAudioCard": "Include Audio Card",
-      "notes": "Notes"
-    }
+  "sync": {
+    "syncIntervalSeconds": 600
   },
   "tags": {
     "allowed": ["word", "sentence"]
   },
-  "generatedPractice": {
+  "presets": [
+    {
+      "name": "search_notes",
+      "description": "Search Chinese vocabulary notes. The deck filter is applied automatically — just provide a search string or leave it blank to browse. Examples: '吃', 'is:new', 'is:due', 'tag:word', 'added:7'.",
+      "baseQuery": "\"deck:Chinese\"",
+      "noteType": "Chinese (Basic)",
+      "searchFields": ["Hanzi", "English"],
+      "searchDescription": "Free-text search across Hanzi and English fields. Matched against each field with OR logic.",
+      "defaultReturnedFields": ["Hanzi"],
+      "optionalReturnedFields": ["Pinyin", "English", "Notes"],
+      "optionalReturnedTags": true,
+      "defaultLimit": 50,
+      "defaultSort": "added_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
+    },
+    {
+      "name": "recently_learned",
+      "description": "Get notes that were first studied recently. Defaults to the last 14 days. Use the 'days' parameter to adjust the lookback window.",
+      "baseQuery": "\"deck:Chinese\" introduced:${days}",
+      "noteType": "Chinese (Basic)",
+      "parameters": {
+        "days": {
+          "type": "number",
+          "description": "How many days back to look for first-studied notes",
+          "default": 14
+        }
+      },
+      "searchFields": [],
+      "defaultReturnedFields": ["Hanzi"],
+      "optionalReturnedFields": ["Pinyin", "English", "Notes"],
+      "optionalReturnedTags": true,
+      "defaultLimit": 50,
+      "defaultSort": "added_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
+    },
+    {
+      "name": "struggling_notes",
+      "description": "Get notes the user is struggling with — high lapse count or low ease. Returns scheduling stats (interval, ease, lapses, reps) alongside note fields.",
+      "baseQuery": "\"deck:Chinese\" (prop:lapses>3 OR prop:ease<2.0) is:review",
+      "noteType": "Chinese (Basic)",
+      "searchFields": [],
+      "defaultReturnedFields": ["Hanzi"],
+      "optionalReturnedFields": ["Pinyin", "English", "Notes"],
+      "optionalReturnedTags": true,
+      "includeSchedulingData": true,
+      "defaultLimit": 50,
+      "defaultSort": "lapses_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc", "lapses_desc", "lapses_asc", "ease_asc", "ease_desc"]
+    }
+  ],
+  "practiceNotes": {
+    "deckName": "GeneratedPractice",
+    "noteType": "Chinese (Basic)",
+    "description": "Create a new practice note in the GeneratedPractice deck. Provide values for each field. Use this for AI-generated sentences the user hasn't seen before.",
+    "fields": [
+      { "name": "Hanzi", "description": "Chinese characters", "required": true },
+      { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
+      { "name": "English", "description": "English translation", "required": true },
+      { "name": "Color", "description": "Tone coloring markup", "required": false },
+      { "name": "Sound", "description": "Audio reference", "required": false },
+      { "name": "Include Audio Card", "description": "Whether to generate an audio card", "required": false },
+      { "name": "Notes", "description": "Freeform notes", "required": false }
+    ],
     "defaultTag": "generated"
-  },
-  "sync": {
-    "syncIntervalSeconds": 600
-  },
-  "defaults": {
-    "recentDays": 7,
-    "maxResults": 50,
-    "struggleLapsesThreshold": 3,
-    "struggleEaseThreshold": 2.0
   }
 }

@@ -2,136 +2,163 @@
 
 ## What This Is
 
-A small MCP server that gives AI agents read/write access to a Chinese vocabulary Anki deck via the AnkiConnect plugin. It exposes 5 tools over stdio. Anki must be running locally with AnkiConnect installed.
+A config-driven MCP server that gives AI agents read/write access to Anki decks via the AnkiConnect plugin. Tools are generated dynamically from presets defined in `config.json` — no code changes needed to add new query tools, change fields, or target different decks. Anki must be running locally with AnkiConnect installed.
 
 ## Architecture
 
 ```
-index.ts       → MCP server bootstrap, tool registration
-tools.ts       → Zod param schemas + handler functions
-helpers.ts     → query builders, HTML stripping, compact formatting
+index.ts       → MCP server bootstrap, registers tools from generateAllTools()
+tools.ts       → reads config presets, builds Zod schemas + handlers dynamically
+helpers.ts     → generic query building, field extraction, pagination, sorting
 anki-client.ts → HTTP client for AnkiConnect (localhost:8765)
-config.ts      → loads config.json
+config.ts      → loads and types config.json
+sync.ts        → stale-sync throttle
 ```
 
 All source is in `src/`, compiled output in `dist/`. Config lives at `mcp-server/config.json`.
 
-## The 5 Tools
+## Tools
+
+Tools are generated at startup from `config.json`. The current config produces these tools:
 
 ### search_notes
-General-purpose search. The deck filter (`deck:Chinese`) is auto-prepended — just pass the query terms.
+General-purpose search. The deck filter is auto-applied — just use the `search` parameter for free-text lookup, or leave it empty to browse.
 
 ```
-query: string    — Anki search syntax (see below)
-limit?: number   — max results (default 50)
+search?: string  — free-text search across Hanzi and English
+limit?: number   — results per page (default 50)
+page?: number    — page number (default 1)
 sort?: enum      — added_asc | added_desc | modified_asc | modified_desc
-include?: object — { noteId?, pinyin?, english?, tags? } toggles
+include?: object — { noteId?, Pinyin?, English?, Notes?, tags? }
 ```
 
-Returns `{ total, notes: [{ hanzi, ...optional fields }] }`.
+Returns `{ total, page, hasMore, notes: [{ Hanzi, ...optional fields }] }`.
 
 ### recently_learned
-Notes first studied in the last N days. Wrapper around `introduced:N`.
+Notes first studied in the last N days.
 
 ```
-days?: number    — lookback window (default 7)
+days?: number    — lookback window (default 14)
 limit?: number
+page?: number
 sort?: enum
 include?: object
 ```
 
 ### struggling_notes
-Notes with high lapses (>3) or low ease (<2.0) that are in review. Returns scheduling stats.
+Notes with high lapses (>3) or low ease (<2.0) in review. Returns scheduling stats.
 
 ```
 limit?: number
-sort?: enum
+page?: number
+sort?: enum      — includes lapses_desc, lapses_asc, ease_asc, ease_desc
 include?: object
 ```
 
 Returns notes enriched with `interval`, `ease`, `lapses`, `reps`.
 
 ### update_tags
-Add or remove tags on notes by ID. You need the note IDs first (get them via `search_notes` with `include: { noteId: true }`).
+Add or remove tags on notes by ID. Get note IDs first via any search tool with `include: { noteId: true }`.
 
 ```
 noteIds: number[]
-add?: string[]
-remove?: string[]
+add?: ("word" | "sentence")[]
+remove?: ("word" | "sentence")[]
 ```
 
 ### create_practice_note
-Create a new note in the `GeneratedPractice` subdeck. Use this for AI-generated sentences.
+Create a new note in the GeneratedPractice subdeck.
 
 ```
-hanzi: string    — Chinese characters
-pinyin: string   — with tone marks
-english: string  — translation
-tags?: string[]  — defaults to ["generated"]
+Hanzi: string    — Chinese characters (required)
+Pinyin: string   — with tone marks (required)
+English: string  — translation (required)
+Color?: string
+Sound?: string
+Include Audio Card?: string
+Notes?: string
 ```
 
-Duplicates within the deck are rejected by AnkiConnect.
+Duplicates within the deck are rejected. Auto-tagged with "generated".
 
-## Anki Search Syntax Quick Reference
+### list_practice_notes
+List all practice notes. Returns a flat list of Hanzi strings. No parameters.
 
-The `search_notes` query accepts standard Anki search syntax:
+## Config-Driven Presets
 
-| Pattern | Meaning |
+Each entry in `config.presets` generates a separate MCP tool. A preset defines:
+
+| Field | Purpose |
 |---|---|
-| `你好` | Match any field |
-| `Hanzi:你` | Match specific field |
-| `tag:HSK1` | Tag filter |
-| `tag:HSK*` | Wildcard tag |
-| `-tag:none` | Exclude untagged |
-| `is:new` | New cards |
-| `is:due` | Due for review |
-| `is:review` | In review phase |
-| `is:learn` | In learning phase |
-| `is:suspended` | Suspended |
-| `added:7` | Added in last 7 days |
-| `introduced:14` | First studied in last 14 days |
-| `rated:3` | Reviewed in last 3 days |
-| `prop:lapses>3` | More than 3 lapses |
-| `prop:ease<2.0` | Ease below 200% |
-| `prop:ivl>=10` | Interval 10+ days |
-| `prop:due=0` | Due today |
-| `a b` | AND |
-| `a or b` | OR |
-| `-term` | NOT |
-| `(a or b) c` | Grouping |
+| `name` | Tool name (must be unique) |
+| `description` | Shown to the model — explain when to use it |
+| `baseQuery` | Anki query with optional `${param}` placeholders |
+| `noteType` | Anki model name for field lookups |
+| `parameters` | Custom tool params interpolated into baseQuery |
+| `searchFields` | If non-empty, adds a `search` param that expands to field-level OR search |
+| `searchDescription` | Custom description for the search parameter |
+| `defaultReturnedFields` | Fields always in the response |
+| `optionalReturnedFields` | Fields available via `include` toggles |
+| `optionalReturnedTags` | Whether `include.tags` is available |
+| `includeSchedulingData` | Fetch card-level interval/ease/lapses/reps |
+| `defaultLimit` | Default page size |
+| `defaultSort` | Sort applied when none specified |
+| `sortOptions` | Allowed sort values |
+
+`noteId` is always implicitly available in `include`.
+
+### Adding a New Query Tool
+
+Just add a preset to `config.json` and restart. Example — a tool for notes added today:
+
+```json
+{
+  "name": "added_today",
+  "description": "Notes added to the deck today.",
+  "baseQuery": "\"deck:Chinese\" added:1",
+  "noteType": "Chinese (Basic)",
+  "searchFields": [],
+  "defaultReturnedFields": ["Hanzi", "Pinyin"],
+  "optionalReturnedFields": ["English", "Notes"],
+  "optionalReturnedTags": true,
+  "defaultLimit": 50,
+  "defaultSort": "added_desc",
+  "sortOptions": ["added_asc", "added_desc"]
+}
+```
 
 ## Data Model
 
-Each note uses the `Chinese (Basic)` note type with these fields:
+The note type is configured per-preset and per-practice config. The current `Chinese (Basic)` type has:
 
 | Field | Contains |
 |---|---|
 | Hanzi | Chinese characters |
-| Pinyin | Pronunciation (may contain HTML/comments) |
+| Pinyin | Pronunciation (HTML/comments auto-stripped) |
 | English | Translation |
 | Color | Tone coloring markup |
 | Sound | Audio reference |
 | Notes | Freeform notes |
 
-The `include` parameter controls which fields appear in tool output. `hanzi` is always returned. Other fields must be opted in: `pinyin`, `english`, `tags`, `noteId`.
-
 ## Common Patterns
 
 ### Get note IDs for tag operations
-Always search with `include: { noteId: true }` before calling `update_tags`.
+Search with `include: { noteId: true }` before calling `update_tags`.
 
 ### Sorting
 - `added_asc/added_desc` — by creation date (note IDs are ms timestamps)
-- `modified_asc/modified_desc` — by last edit (requires fetching full note info)
+- `modified_asc/modified_desc` — by last edit
+- `lapses_desc/lapses_asc` — by lapse count (scheduling presets only)
+- `ease_asc/ease_desc` — by ease factor (scheduling presets only)
 
 ### HTML in fields
-Fields may contain HTML tags and comments. The server strips these automatically before returning results — agents receive clean text.
+Fields may contain HTML tags and comments. The server strips these automatically.
 
 ### One note, multiple cards
-A single note can generate multiple Anki cards (e.g. recognition + recall). The server deduplicates by note ID, so you always get one result per vocabulary item.
+A note can generate multiple Anki cards. The server deduplicates by note ID.
 
-### Generated practice notes
-`create_practice_note` creates its subdeck idempotently. The note type must match `Chinese (Basic)` — don't try to use custom fields.
+### Pagination
+All search tools support `limit` and `page`. Responses include `total`, `page`, and `hasMore`.
 
 ## Prerequisites
 
@@ -148,13 +175,10 @@ npm run build   # tsc
 npm start       # node dist/index.js (stdio transport)
 ```
 
-The server is launched by a Claude Code MCP host — it communicates over stdin/stdout, not HTTP.
-
 ## Gotchas
 
 - **Anki must be open.** If Anki isn't running, all tool calls will fail with connection errors.
-- **Deck name is hardcoded in config.** All queries target the `Chinese` deck. There's no way to query other decks through this server.
-- **Duplicate rejection.** `create_practice_note` will error if a note with the same Hanzi already exists in the target deck.
-- **Ease is x1000.** AnkiConnect returns ease as an integer (e.g. 2500 = 250%). The struggle threshold in config uses the divided form (2.0 = 200%).
-- **Negative intervals.** A negative `interval` value means the card is in the learning phase (value is in seconds). Positive means review phase (value is in days).
-- **Result limits.** Default max is 50. Pass `limit: 0` or a higher number if you need all results, but be mindful of response size.
+- **Duplicate rejection.** `create_practice_note` will error if a note with the same primary field already exists in the target deck.
+- **Ease is x1000.** AnkiConnect returns ease as an integer (2500 = 250%). Threshold in config uses divided form (2.0 = 200%).
+- **Negative intervals.** Negative `interval` = learning phase (seconds). Positive = review phase (days).
+- **Result limits.** Default varies by preset. Pass `limit: 0` for all results, but be mindful of response size.
