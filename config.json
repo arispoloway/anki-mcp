@@ -25,6 +25,9 @@
   "generatedPractice": {
     "defaultTag": "generated"
   },
+  "sync": {
+    "syncIntervalSeconds": 600
+  },
   "defaults": {
     "recentDays": 7,
     "maxResults": 50,

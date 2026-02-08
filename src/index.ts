@@ -14,6 +14,7 @@ import {
   handleListPracticeNotes,
   handleCreatePracticeNote,
 } from "./tools.js";
+import { syncIfStale } from "./sync.js";
 
 const server = new McpServer({
   name: "chinese-anki",
@@ -74,6 +75,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  await syncIfStale();
 }
 
 main().catch((err) => {

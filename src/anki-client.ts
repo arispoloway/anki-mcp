@@ -110,3 +110,9 @@ export async function removeTags(
 export async function createDeck(deckName: string): Promise<number> {
   return invoke<number>("createDeck", { deck: deckName });
 }
+
+// ── Sync ──
+
+export async function sync(): Promise<void> {
+  await invoke("sync");
+}

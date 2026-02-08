@@ -14,6 +14,7 @@ import {
   stripHtml,
   type SortOrder,
 } from "./helpers.js";
+import { syncIfStale } from "./sync.js";
 
 // ── Shared include-field toggles ──
 
@@ -102,6 +103,7 @@ export async function handleSearchNotes(args: {
   query: string;
   limit?: number;
 } & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
+  await syncIfStale();
   const result = await searchNotes(args.query, args.limit, args.include, args.sort, args.page);
   return textResult(result);
 }
@@ -110,6 +112,7 @@ export async function handleRecentlyLearned(args: {
   days?: number;
   limit?: number;
 } & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
+  await syncIfStale();
   const days = args.days ?? config.defaults.recentDays;
   const result = await searchNotes(`introduced:${days}`, args.limit, args.include, args.sort, args.page);
   return textResult(result);
@@ -118,6 +121,7 @@ export async function handleRecentlyLearned(args: {
 export async function handleStrugglingNotes(args: {
   limit?: number;
 } & IncludeArg & SortArg & PageArg): Promise<ToolResult> {
+  await syncIfStale();
   const { struggleLapsesThreshold, struggleEaseThreshold } = config.defaults;
   const query = `(prop:lapses>${struggleLapsesThreshold} or prop:ease<${struggleEaseThreshold}) is:review`;
   const result = await searchCardsWithScheduling(query, args.limit, args.include, args.page);
@@ -130,6 +134,7 @@ export async function handleUpdateTags(args: {
   add?: string[];
   remove?: string[];
 }): Promise<ToolResult> {
+  await syncIfStale();
   if (args.add?.length) {
     await addTags(args.noteIds, args.add.join(" "));
   }
@@ -145,6 +150,7 @@ export async function handleUpdateTags(args: {
 }
 
 export async function handleListPracticeNotes(): Promise<ToolResult> {
+  await syncIfStale();
   const noteIds = await findNotes(`"deck:${config.deck.generatedSubdeck}"`);
   if (noteIds.length === 0) return textResult([]);
   const infos = await notesInfo(noteIds);
@@ -157,6 +163,7 @@ export async function handleCreatePracticeNote(args: {
   pinyin: string;
   english: string;
 }): Promise<ToolResult> {
+  await syncIfStale();
   const tags = [config.generatedPractice.defaultTag];
   const { noteType, deck } = config;
 

@@ -25,6 +25,9 @@ interface Config {
       notes: string;
     };
   };
+  sync: {
+    syncIntervalSeconds: number;
+  };
   tags: {
     allowed: string[];
   };
