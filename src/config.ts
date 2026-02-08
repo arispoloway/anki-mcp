@@ -67,15 +67,17 @@ export interface PracticeFieldConfig {
 }
 
 export interface PracticeNotesConfig {
+  /** Base name used to derive tool names: create_{name}, list_{name}. Must be unique. */
+  name: string;
   /** Anki deck name for generated practice notes. */
   deckName: string;
   /** Anki note type (model name). */
   noteType: string;
-  /** Tool description shown to the model. */
+  /** Tool description shown to the model for the create tool. */
   description: string;
   /** Fields on the note type, in order. Required ones become required tool params. */
   fields: PracticeFieldConfig[];
-  /** Tag automatically applied to every created practice note. */
+  /** Tag automatically applied to every created note. */
   defaultTag: string;
 }
 
@@ -93,7 +95,7 @@ export interface Config {
     allowed: string[];
   };
   presets: Preset[];
-  practiceNotes: PracticeNotesConfig;
+  practiceNotes: PracticeNotesConfig[];
 }
 
 const raw = readFileSync(join(__dirname, "..", "config.json"), "utf-8");

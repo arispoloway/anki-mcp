@@ -8,6 +8,7 @@ import {
   createDeck,
   findNotes,
   notesInfo,
+  sync,
 } from "./anki-client.js";
 import {
   buildQuery,
@@ -166,7 +167,7 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
     };
 
     tools.push({
-      name: "create_practice_note",
+      name: `create_${cfg.name}`,
       description: cfg.description,
       params,
       handler,
@@ -186,8 +187,8 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
     };
 
     tools.push({
-      name: "list_practice_notes",
-      description: `List all practice notes in the ${cfg.deckName} deck. Returns a flat list of ${cfg.fields.find((f) => f.required)?.name ?? "primary field"} values.`,
+      name: `list_${cfg.name}`,
+      description: `List all notes in the ${cfg.deckName} deck. Returns a flat list of ${cfg.fields.find((f) => f.required)?.name ?? "primary field"} values.`,
       params: {},
       handler,
     });
@@ -251,10 +252,23 @@ export function generateAllTools(): GeneratedTool[] {
   }
 
   // Practice note tools
-  tools.push(...buildPracticeTools(config.practiceNotes));
+  for (const practiceConfig of config.practiceNotes) {
+    tools.push(...buildPracticeTools(practiceConfig));
+  }
 
   // Tag management
   tools.push(buildUpdateTagsTool());
+
+  // Sync
+  tools.push({
+    name: "sync",
+    description: "Trigger an immediate sync of the Anki collection with AnkiWeb. Use when the user explicitly asks to sync.",
+    params: {},
+    handler: async () => {
+      await sync();
+      return textResult({ success: true });
+    },
+  });
 
   return tools;
 }

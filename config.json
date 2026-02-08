@@ -59,19 +59,34 @@
       "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc", "lapses_desc", "lapses_asc", "ease_asc", "ease_desc"]
     }
   ],
-  "practiceNotes": {
-    "deckName": "GeneratedPractice",
-    "noteType": "Chinese (Basic)",
-    "description": "Create a new practice note in the GeneratedPractice deck. Provide values for each field. Use this for AI-generated sentences the user hasn't seen before.",
-    "fields": [
-      { "name": "Hanzi", "description": "Chinese characters", "required": true },
-      { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
-      { "name": "English", "description": "English translation", "required": true },
-      { "name": "Color", "description": "Tone coloring markup", "required": false },
-      { "name": "Sound", "description": "Audio reference", "required": false },
-      { "name": "Include Audio Card", "description": "Whether to generate an audio card", "required": false },
-      { "name": "Notes", "description": "Freeform notes", "required": false }
-    ],
-    "defaultTag": "generated"
-  }
+  "practiceNotes": [
+    {
+      "name": "practice_note",
+      "deckName": "GeneratedPractice",
+      "noteType": "Chinese (Basic)",
+      "description": "Create a new practice note in the GeneratedPractice deck. Provide values for each field. Use this for AI-generated sentences the user hasn't seen before.",
+      "fields": [
+        { "name": "Hanzi", "description": "Chinese characters", "required": true },
+        { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
+        { "name": "English", "description": "English translation", "required": true },
+        { "name": "Color", "description": "Tone coloring markup", "required": false },
+        { "name": "Sound", "description": "Audio reference", "required": false },
+        { "name": "Include Audio Card", "description": "Whether to generate an audio card", "required": false },
+        { "name": "Notes", "description": "Freeform notes", "required": false }
+      ],
+      "defaultTag": "generated"
+    },
+    {
+      "name": "new_word",
+      "deckName": "NewWords",
+      "noteType": "Chinese (Basic)",
+      "description": "Add a new word to the NewWords deck. Use this when the user encounters or wants to save a new vocabulary word.",
+      "fields": [
+        { "name": "Hanzi", "description": "Chinese characters", "required": true },
+        { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
+        { "name": "English", "description": "English translation", "required": true }
+      ],
+      "defaultTag": "new"
+    }
+  ]
 }
