@@ -1,0 +1,34 @@
+{
+  "ankiConnect": {
+    "url": "http://127.0.0.1:8765",
+    "version": 6
+  },
+  "deck": {
+    "name": "Chinese",
+    "generatedSubdeck": "GeneratedPractice"
+  },
+  "noteType": {
+    "name": "Chinese (Basic)",
+    "fields": {
+      "hanzi": "Hanzi",
+      "color": "Color",
+      "pinyin": "Pinyin",
+      "english": "English",
+      "sound": "Sound",
+      "includeAudioCard": "Include Audio Card",
+      "notes": "Notes"
+    }
+  },
+  "tags": {
+    "allowed": ["word", "sentence"]
+  },
+  "generatedPractice": {
+    "defaultTag": "generated"
+  },
+  "defaults": {
+    "recentDays": 7,
+    "maxResults": 50,
+    "struggleLapsesThreshold": 3,
+    "struggleEaseThreshold": 2.0
+  }
+}
