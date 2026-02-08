@@ -78,7 +78,7 @@
       "name": "new_word",
       "deckName": "NewWords",
       "noteType": "Chinese (Basic)",
-      "description": "Save a new vocabulary word for the user to study. Use this when the user encounters or wants to remember a new word. Before adding, ALWAYS confirm words are not already in their vocabulary by using search_notes.",
+      "description": "Save a new vocabulary word for the user to study. Use this when the user encounters or wants to remember a new word.",
       "fields": [
         { "name": "Hanzi", "description": "Chinese characters", "required": true },
         { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
@@ -86,6 +86,7 @@
         { "name": "Notes", "description": "Freeform notes", "required": false }
       ],
       "allowedTags": ["word", "sentence"],
+      "rejectDuplicates": "Hanzi",
       "defaultTag": "new"
     }
   ]

@@ -156,14 +156,30 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
 
     const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
       await syncIfStale();
-      const tags = [cfg.defaultTag];
-
-      await createDeck(cfg.deckName);
 
       const fields: Record<string, string> = {};
       for (const field of cfg.fields) {
         fields[field.name] = (args[field.name] as string | undefined) ?? "";
       }
+
+      // Check for global duplicates on the configured field
+      if (cfg.rejectDuplicates) {
+        const value = fields[cfg.rejectDuplicates];
+        if (value) {
+          const dupeQuery = `${cfg.rejectDuplicates}:${value}`;
+          const existing = await findNotes(dupeQuery);
+          if (existing.length > 0) {
+            return textResult({
+              success: false,
+              reason: `A note with ${cfg.rejectDuplicates} "${value}" already exists.`,
+              existingNoteIds: existing,
+            });
+          }
+        }
+      }
+
+      const tags = [cfg.defaultTag];
+      await createDeck(cfg.deckName);
 
       const noteId = await addNote(cfg.deckName, cfg.noteType, fields, tags);
 

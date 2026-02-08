@@ -85,6 +85,11 @@ export interface PracticeNotesConfig {
   fields: PracticeFieldConfig[];
   /** Tags that the model is allowed to add or remove on notes in this deck. */
   allowedTags: string[];
+  /**
+   * If set, reject adding a note when any existing note (across all decks)
+   * already has the same value for the named field.
+   */
+  rejectDuplicates?: string;
   /** Tag automatically applied to every created note. */
   defaultTag: string;
 }
