@@ -45,6 +45,12 @@ export interface Preset {
   optionalReturnedFields: string[];
   /** Whether tags can be opted in via `include`. */
   optionalReturnedTags?: boolean;
+  /**
+   * If set, the tool exposes a `tags` parameter that lets the model filter
+   * results to notes matching any of the provided tags.
+   * The array lists which tag values are valid choices.
+   */
+  tagFilters?: string[];
   /** Whether to fetch and return card-level scheduling data (interval, ease, lapses, reps). */
   includeSchedulingData?: boolean;
   /** Default number of results per page. */
@@ -77,6 +83,8 @@ export interface PracticeNotesConfig {
   description: string;
   /** Fields on the note type, in order. Required ones become required tool params. */
   fields: PracticeFieldConfig[];
+  /** Tags that the model is allowed to add or remove on notes in this deck. */
+  allowedTags: string[];
   /** Tag automatically applied to every created note. */
   defaultTag: string;
 }
@@ -90,9 +98,6 @@ export interface Config {
   };
   sync: {
     syncIntervalSeconds: number;
-  };
-  tags: {
-    allowed: string[];
   };
   presets: Preset[];
   practiceNotes: PracticeNotesConfig[];

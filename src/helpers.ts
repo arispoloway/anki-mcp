@@ -110,13 +110,14 @@ function paginate<T>(items: T[], limit: number, page: number): PaginatedResult<T
 // ── Query building ──
 
 /**
- * Build the search query for a preset, interpolating custom parameters
- * and appending the optional free-text search expansion.
+ * Build the search query for a preset, interpolating custom parameters,
+ * appending the optional free-text search expansion, and tag filters.
  */
 export function buildQuery(
   preset: Preset,
   customParams: Record<string, unknown>,
-  searchTerm?: string
+  searchTerm?: string,
+  tags?: string[]
 ): string {
   let query = preset.baseQuery;
 
@@ -134,6 +135,13 @@ export function buildQuery(
     const clauses = preset.searchFields.map((f) => `${f}:*${term}*`);
     const expansion = clauses.length === 1 ? clauses[0] : `(${clauses.join(" OR ")})`;
     query = `${query} ${expansion}`;
+  }
+
+  // Append tag filters (match any of the provided tags)
+  if (tags && tags.length > 0) {
+    const tagClauses = tags.map((t) => `tag:${t}`);
+    const tagExpansion = tagClauses.length === 1 ? tagClauses[0] : `(${tagClauses.join(" OR ")})`;
+    query = `${query} ${tagExpansion}`;
   }
 
   return query.trim();

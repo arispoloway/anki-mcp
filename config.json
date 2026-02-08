@@ -6,9 +6,6 @@
   "sync": {
     "syncIntervalSeconds": 600
   },
-  "tags": {
-    "allowed": ["word", "sentence"]
-  },
   "presets": [
     {
       "name": "search_notes",
@@ -17,6 +14,7 @@
       "noteType": "Chinese (Basic)",
       "searchFields": ["Hanzi", "English", "Notes"],
       "searchDescription": "A word or phrase to search for. Matched against hanzi, english, and notes fields. Use this to look up specific characters, words, or meanings — not a query language.",
+      "tagFilters": ["word", "sentence"],
       "defaultReturnedFields": ["Hanzi"],
       "optionalReturnedFields": ["Pinyin", "English", "Notes"],
       "optionalReturnedTags": true,
@@ -37,6 +35,7 @@
         }
       },
       "searchFields": [],
+      "tagFilters": ["word", "sentence"],
       "defaultReturnedFields": ["Hanzi"],
       "optionalReturnedFields": ["Pinyin", "English", "Notes"],
       "optionalReturnedTags": true,
@@ -50,6 +49,7 @@
       "baseQuery": "\"deck:Chinese\" (prop:lapses>3 OR prop:ease<2.0) is:review",
       "noteType": "Chinese (Basic)",
       "searchFields": [],
+      "tagFilters": ["word", "sentence"],
       "defaultReturnedFields": ["Hanzi"],
       "optionalReturnedFields": ["Pinyin", "English", "Notes"],
       "optionalReturnedTags": true,
@@ -71,19 +71,21 @@
         { "name": "English", "description": "English translation", "required": true },
         { "name": "Notes", "description": "Freeform notes", "required": false }
       ],
+      "allowedTags": ["word", "sentence"],
       "defaultTag": "generated"
     },
     {
       "name": "new_word",
       "deckName": "NewWords",
       "noteType": "Chinese (Basic)",
-      "description": "Save a new vocabulary word for the user to study. Use this when the user encounters or wants to remember a new word. Before adding, confirm it's not already in their vocabulary by using search_notes.",
+      "description": "Save a new vocabulary word for the user to study. Use this when the user encounters or wants to remember a new word. Before adding, ALWAYS confirm words are not already in their vocabulary by using search_notes.",
       "fields": [
         { "name": "Hanzi", "description": "Chinese characters", "required": true },
         { "name": "Pinyin", "description": "Pinyin with tone marks", "required": true },
         { "name": "English", "description": "English translation", "required": true },
         { "name": "Notes", "description": "Freeform notes", "required": false }
       ],
+      "allowedTags": ["word", "sentence"],
       "defaultTag": "new"
     }
   ]

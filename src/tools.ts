@@ -80,6 +80,14 @@ function buildPresetTool(preset: Preset): GeneratedTool {
     );
   }
 
+  // Tag filter parameter (only if tagFilters is configured)
+  if (preset.tagFilters && preset.tagFilters.length > 0) {
+    const tagEnum = preset.tagFilters as [string, ...string[]];
+    params.tags = z.array(z.enum(tagEnum)).optional().describe(
+      "Filter results to notes matching any of the provided tags."
+    );
+  }
+
   // Sort parameter
   if (preset.sortOptions.length > 0) {
     const sortEnum = preset.sortOptions as [string, ...string[]];
@@ -107,7 +115,8 @@ function buildPresetTool(preset: Preset): GeneratedTool {
       }
     }
 
-    const query = buildQuery(preset, customParams, args.search as string | undefined);
+    const tags = args.tags as string[] | undefined;
+    const query = buildQuery(preset, customParams, args.search as string | undefined, tags);
     const limit = (args.limit as number | undefined) ?? preset.defaultLimit;
     const page = (args.page as number | undefined) ?? 1;
     const sort = (args.sort as string | undefined) ?? preset.defaultSort;
@@ -200,15 +209,21 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
 // ── Tag tool (stays largely the same) ──
 
 function buildUpdateTagsTool(): GeneratedTool {
-  const allowedTagsEnum = config.tags.allowed as [string, ...string[]];
+  // Derive allowed tags from all practiceNotes configs
+  const allAllowed = new Set<string>();
+  for (const cfg of config.practiceNotes) {
+    for (const tag of cfg.allowedTags) allAllowed.add(tag);
+  }
+  const allowedTags = [...allAllowed];
+  const allowedTagsEnum = allowedTags as [string, ...string[]];
 
   const params: Record<string, z.ZodTypeAny> = {
     noteIds: z.array(z.number()).describe("Note IDs to update"),
     add: z.array(z.enum(allowedTagsEnum)).optional().describe(
-      `Tags to add (allowed: ${config.tags.allowed.join(", ")})`
+      `Tags to add (allowed: ${allowedTags.join(", ")})`
     ),
     remove: z.array(z.enum(allowedTagsEnum)).optional().describe(
-      `Tags to remove (allowed: ${config.tags.allowed.join(", ")})`
+      `Tags to remove (allowed: ${allowedTags.join(", ")})`
     ),
   };
 
@@ -262,7 +277,7 @@ export function generateAllTools(): GeneratedTool[] {
   // Sync
   tools.push({
     name: "sync",
-    description: "Trigger an immediate sync of the Anki collection with AnkiWeb. Use when the user explicitly asks to sync.",
+    description: "Trigger an immediate sync of the Anki collection with AnkiWeb. Use when the user explicitly asks to sync, or after adding notes.",
     params: {},
     handler: async () => {
       await sync();
