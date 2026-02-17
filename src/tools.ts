@@ -206,7 +206,7 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
       const noteIds = await findNotes(`"deck:${cfg.deckName}"`);
       if (noteIds.length === 0) return textResult([]);
       const infos = await notesInfo(noteIds);
-      // Return the first required field (typically Hanzi) as a flat list
+      // Return the first required field as a flat list
       const primaryField = cfg.fields.find((f) => f.required)?.name ?? cfg.fields[0].name;
       return textResult(infos.map((n) => stripHtml(n.fields[primaryField]?.value ?? "")));
     };

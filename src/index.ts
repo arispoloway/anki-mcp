@@ -5,7 +5,7 @@ import { generateAllTools } from "./tools.js";
 import { syncIfStale } from "./sync.js";
 
 const server = new McpServer({
-  name: "chinese-anki",
+  name: "anki-mcp-server",
   version: "2.0.0",
 });
 

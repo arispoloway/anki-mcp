@@ -1,7 +1,7 @@
 {
-  "name": "chinese-anki-mcp",
+  "name": "anki-mcp-server",
   "version": "1.0.0",
-  "description": "Custom MCP server for Chinese Anki deck",
+  "description": "A config-driven MCP server for Anki via AnkiConnect",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

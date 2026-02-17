@@ -1,0 +1,76 @@
+{
+  "ankiConnect": {
+    "url": "http://127.0.0.1:8765",
+    "version": 6
+  },
+  "sync": {
+    "syncIntervalSeconds": 600
+  },
+  "presets": [
+    {
+      "name": "search_notes",
+      "description": "Search notes using a search term. Searches across the front and back fields. Leave the search empty to browse all notes.",
+      "baseQuery": "\"deck:My Deck\"",
+      "noteType": "Basic",
+      "searchFields": ["Front", "Back"],
+      "searchDescription": "A word or phrase to search for. Matched against front and back fields.",
+      "tagFilters": [],
+      "defaultReturnedFields": ["Front"],
+      "optionalReturnedFields": ["Back"],
+      "optionalReturnedTags": true,
+      "defaultLimit": 50,
+      "defaultSort": "added_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
+    },
+    {
+      "name": "recently_learned",
+      "description": "Get notes the user started learning recently. Defaults to the last 7 days.",
+      "baseQuery": "\"deck:My Deck\" introduced:${days}",
+      "noteType": "Basic",
+      "parameters": {
+        "days": {
+          "type": "number",
+          "description": "How many days back to look",
+          "default": 7
+        }
+      },
+      "searchFields": [],
+      "tagFilters": [],
+      "defaultReturnedFields": ["Front"],
+      "optionalReturnedFields": ["Back"],
+      "optionalReturnedTags": true,
+      "defaultLimit": 50,
+      "defaultSort": "added_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
+    },
+    {
+      "name": "struggling_notes",
+      "description": "Get notes the user is struggling with — ones they frequently forget or find difficult. Returns review stats (interval, ease, lapses, reps).",
+      "baseQuery": "\"deck:My Deck\" (prop:lapses>3 OR prop:ease<2.0) is:review",
+      "noteType": "Basic",
+      "searchFields": [],
+      "tagFilters": [],
+      "defaultReturnedFields": ["Front"],
+      "optionalReturnedFields": ["Back"],
+      "optionalReturnedTags": true,
+      "includeSchedulingData": true,
+      "defaultLimit": 50,
+      "defaultSort": "lapses_desc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc", "lapses_desc", "lapses_asc", "ease_asc", "ease_desc"]
+    }
+  ],
+  "practiceNotes": [
+    {
+      "name": "practice_note",
+      "deckName": "GeneratedPractice",
+      "noteType": "Basic",
+      "description": "Create a new practice note for the user to study.",
+      "fields": [
+        { "name": "Front", "description": "Front of the card", "required": true },
+        { "name": "Back", "description": "Back of the card", "required": true }
+      ],
+      "allowedTags": [],
+      "defaultTag": "generated"
+    }
+  ]
+}
