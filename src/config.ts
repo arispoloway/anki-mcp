@@ -94,6 +94,8 @@ export interface PracticeNotesConfig {
 // ── Top-level config ──
 
 export interface Config {
+  /** Transport mode: "stdio" for local agent piping, "http" for network access. */
+  transport: "stdio" | "http";
   ankiConnect: {
     url: string;
     version: number;

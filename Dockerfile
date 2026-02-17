@@ -9,4 +9,5 @@ RUN bun install --frozen-lockfile --production
 COPY src/ src/
 COPY config.json .
 
+EXPOSE 8080
 ENTRYPOINT ["bun", "src/index.ts"]
