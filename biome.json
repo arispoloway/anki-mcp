@@ -1,4 +1,7 @@
 {
+  "files": {
+    "includes": ["src/**", "test/**", "*.json"]
+  },
   "formatter": {
     "indentStyle": "space",
     "indentWidth": 2,

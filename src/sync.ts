@@ -1,5 +1,5 @@
-import { config } from "./config.js";
 import { sync } from "./anki-client.js";
+import { config } from "./config.js";
 
 let lastSyncTime = 0;
 

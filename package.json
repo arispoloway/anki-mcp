@@ -6,9 +6,10 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "bun src/index.ts",
-    "format": "biome format --write src/",
-    "lint": "biome lint src/",
-    "check": "biome check src/"
+    "test": "bun test",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check ."
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

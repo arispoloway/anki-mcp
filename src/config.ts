@@ -1,5 +1,5 @@
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // ── Preset parameter definition ──
 
@@ -107,5 +107,20 @@ export interface Config {
   practiceNotes: PracticeNotesConfig[];
 }
 
-const raw = readFileSync(join(import.meta.dir, "..", "config.json"), "utf-8");
-export const config: Config = JSON.parse(raw);
+// ── Config loading ──
+
+function loadConfig(): Config | undefined {
+  try {
+    const raw = readFileSync(join(import.meta.dir, "..", "config.json"), "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+export let config: Config = loadConfig() as Config;
+
+/** Replace the active config (used by tests). */
+export function setConfig(c: Config): void {
+  config = c;
+}

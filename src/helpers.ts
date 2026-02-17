@@ -1,6 +1,5 @@
-import { config } from "./config.js";
+import { cardsInfo, findCards, findNotes, type NoteInfo, notesInfo } from "./anki-client.js";
 import type { Preset } from "./config.js";
-import { findNotes, notesInfo, findCards, cardsInfo, type NoteInfo } from "./anki-client.js";
 
 // ── HTML / comment stripping ──
 
@@ -127,7 +126,7 @@ export function buildQuery(
   }
 
   // Expand free-text search across configured fields
-  if (searchTerm && searchTerm.trim() && preset.searchFields.length > 0) {
+  if (searchTerm?.trim() && preset.searchFields.length > 0) {
     const term = searchTerm.trim();
     const clauses = preset.searchFields.map((f) => `${f}:*${term}*`);
     const expansion = clauses.length === 1 ? clauses[0] : `(${clauses.join(" OR ")})`;
