@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { generateAllTools } from "./tools.js";
@@ -17,7 +17,7 @@ for (const tool of generateAllTools()) {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  await syncIfStale();
+  await syncIfStale().catch(() => {});
 }
 
 main().catch((err) => {

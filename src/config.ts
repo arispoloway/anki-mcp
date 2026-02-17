@@ -1,8 +1,5 @@
 import { readFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { join } from "path";
 
 // ── Preset parameter definition ──
 
@@ -108,5 +105,5 @@ export interface Config {
   practiceNotes: PracticeNotesConfig[];
 }
 
-const raw = readFileSync(join(__dirname, "..", "config.json"), "utf-8");
+const raw = readFileSync(join(import.meta.dir, "..", "config.json"), "utf-8");
 export const config: Config = JSON.parse(raw);
