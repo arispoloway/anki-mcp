@@ -7,7 +7,7 @@ interface AnkiResponse<T = unknown> {
 
 async function invoke<T = unknown>(
   action: string,
-  params: Record<string, unknown> = {}
+  params: Record<string, unknown> = {},
 ): Promise<T> {
   const body = JSON.stringify({
     action,
@@ -22,9 +22,7 @@ async function invoke<T = unknown>(
   });
 
   if (!resp.ok) {
-    throw new Error(
-      `AnkiConnect HTTP error: ${resp.status} ${resp.statusText}`
-    );
+    throw new Error(`AnkiConnect HTTP error: ${resp.status} ${resp.statusText}`);
   }
 
   const data: AnkiResponse<T> = await resp.json();
@@ -80,7 +78,7 @@ export async function addNote(
   deckName: string,
   modelName: string,
   fields: Record<string, string>,
-  tags: string[]
+  tags: string[],
 ): Promise<number> {
   return invoke<number>("addNote", {
     note: {
@@ -93,17 +91,11 @@ export async function addNote(
   });
 }
 
-export async function addTags(
-  noteIds: number[],
-  tags: string
-): Promise<void> {
+export async function addTags(noteIds: number[], tags: string): Promise<void> {
   await invoke("addTags", { notes: noteIds, tags });
 }
 
-export async function removeTags(
-  noteIds: number[],
-  tags: string
-): Promise<void> {
+export async function removeTags(noteIds: number[], tags: string): Promise<void> {
   await invoke("removeTags", { notes: noteIds, tags });
 }
 

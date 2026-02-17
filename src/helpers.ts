@@ -1,17 +1,14 @@
 import { config } from "./config.js";
 import type { Preset } from "./config.js";
-import {
-  findNotes,
-  notesInfo,
-  findCards,
-  cardsInfo,
-  type NoteInfo,
-} from "./anki-client.js";
+import { findNotes, notesInfo, findCards, cardsInfo, type NoteInfo } from "./anki-client.js";
 
 // ── HTML / comment stripping ──
 
 export function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
 }
 
 function stripComments(s: string): string {
@@ -39,7 +36,7 @@ export type CompactNote = Record<string, unknown>;
 export function toCompact(
   n: NoteInfo,
   defaultFields: string[],
-  include?: IncludeFlags
+  include?: IncludeFlags,
 ): CompactNote {
   const result: CompactNote = {};
 
@@ -117,7 +114,7 @@ export function buildQuery(
   preset: Preset,
   customParams: Record<string, unknown>,
   searchTerm?: string,
-  tags?: string[]
+  tags?: string[],
 ): string {
   let query = preset.baseQuery;
 
@@ -155,7 +152,7 @@ export async function searchNotes(
   limit: number,
   page: number,
   include?: IncludeFlags,
-  sort?: string
+  sort?: string,
 ): Promise<PaginatedResult<CompactNote>> {
   const noteIds = await findNotes(query);
 
@@ -191,7 +188,7 @@ export async function searchCardsWithScheduling(
   limit: number,
   page: number,
   include?: IncludeFlags,
-  sort?: string
+  sort?: string,
 ): Promise<PaginatedResult<CardWithScheduling>> {
   const cardIds = await findCards(query);
   const allInfos = cardIds.length > 0 ? await cardsInfo(cardIds) : [];

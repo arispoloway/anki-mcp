@@ -87,7 +87,7 @@ async function startHttp() {
           error: { code: -32000, message: "Bad request: no valid session" },
           id: null,
         },
-        { status: 400 }
+        { status: 400 },
       );
     },
   });

@@ -45,13 +45,12 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   if (preset.parameters) {
     for (const [key, def] of Object.entries(preset.parameters)) {
       if (def.type === "number") {
-        params[key] = z.number().optional().describe(
-          `${def.description} (default ${def.default})`
-        );
+        params[key] = z.number().optional().describe(`${def.description} (default ${def.default})`);
       } else {
-        params[key] = z.string().optional().describe(
-          `${def.description} (default "${def.default}")`
-        );
+        params[key] = z
+          .string()
+          .optional()
+          .describe(`${def.description} (default "${def.default}")`);
       }
     }
   }
@@ -59,7 +58,8 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   // Search parameter (only if searchFields is non-empty)
   if (preset.searchFields.length > 0) {
     const fieldList = preset.searchFields.join(", ");
-    const desc = preset.searchDescription ??
+    const desc =
+      preset.searchDescription ??
       `Free-text search across ${fieldList}. Leave empty to return all results matching the base query.`;
     params.search = z.string().optional().describe(desc);
   }
@@ -75,34 +75,41 @@ function buildPresetTool(preset: Preset): GeneratedTool {
     if (preset.optionalReturnedTags) {
       shape.tags = z.boolean().optional().describe("Include tags");
     }
-    params.include = z.object(shape).optional().describe(
-      "Extra fields to include beyond the defaults. Only request fields you need to keep responses compact."
-    );
+    params.include = z
+      .object(shape)
+      .optional()
+      .describe(
+        "Extra fields to include beyond the defaults. Only request fields you need to keep responses compact.",
+      );
   }
 
   // Tag filter parameter (only if tagFilters is configured)
   if (preset.tagFilters && preset.tagFilters.length > 0) {
     const tagEnum = preset.tagFilters as [string, ...string[]];
-    params.tags = z.array(z.enum(tagEnum)).optional().describe(
-      "Filter results to notes matching any of the provided tags."
-    );
+    params.tags = z
+      .array(z.enum(tagEnum))
+      .optional()
+      .describe("Filter results to notes matching any of the provided tags.");
   }
 
   // Sort parameter
   if (preset.sortOptions.length > 0) {
     const sortEnum = preset.sortOptions as [string, ...string[]];
-    params.sort = z.enum(sortEnum).optional().describe(
-      `Sort order (default: ${preset.defaultSort})`
-    );
+    params.sort = z
+      .enum(sortEnum)
+      .optional()
+      .describe(`Sort order (default: ${preset.defaultSort})`);
   }
 
   // Pagination
-  params.limit = z.number().optional().describe(
-    `Results per page (default ${preset.defaultLimit})`
-  );
-  params.page = z.number().optional().describe(
-    "Page number (default 1). Use with limit for pagination."
-  );
+  params.limit = z
+    .number()
+    .optional()
+    .describe(`Results per page (default ${preset.defaultLimit})`);
+  params.page = z
+    .number()
+    .optional()
+    .describe("Page number (default 1). Use with limit for pagination.");
 
   // Handler
   const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -124,13 +131,23 @@ function buildPresetTool(preset: Preset): GeneratedTool {
 
     if (preset.includeSchedulingData) {
       const result = await searchCardsWithScheduling(
-        query, preset.defaultReturnedFields, limit, page, include, sort
+        query,
+        preset.defaultReturnedFields,
+        limit,
+        page,
+        include,
+        sort,
       );
       return textResult(result);
     }
 
     const result = await searchNotes(
-      query, preset.defaultReturnedFields, limit, page, include, sort
+      query,
+      preset.defaultReturnedFields,
+      limit,
+      page,
+      include,
+      sort,
     );
     return textResult(result);
   };
@@ -235,12 +252,14 @@ function buildUpdateTagsTool(): GeneratedTool {
 
   const params: Record<string, z.ZodTypeAny> = {
     noteIds: z.array(z.number()).describe("Note IDs to update"),
-    add: z.array(z.enum(allowedTagsEnum)).optional().describe(
-      `Tags to add (allowed: ${allowedTags.join(", ")})`
-    ),
-    remove: z.array(z.enum(allowedTagsEnum)).optional().describe(
-      `Tags to remove (allowed: ${allowedTags.join(", ")})`
-    ),
+    add: z
+      .array(z.enum(allowedTagsEnum))
+      .optional()
+      .describe(`Tags to add (allowed: ${allowedTags.join(", ")})`),
+    remove: z
+      .array(z.enum(allowedTagsEnum))
+      .optional()
+      .describe(`Tags to remove (allowed: ${allowedTags.join(", ")})`),
   };
 
   const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -293,7 +312,8 @@ export function generateAllTools(): GeneratedTool[] {
   // Sync
   tools.push({
     name: "sync",
-    description: "Trigger an immediate sync of the Anki collection with AnkiWeb. Use when the user explicitly asks to sync, or after adding notes.",
+    description:
+      "Trigger an immediate sync of the Anki collection with AnkiWeb. Use when the user explicitly asks to sync, or after adding notes.",
     params: {},
     handler: async () => {
       await sync();
