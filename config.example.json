@@ -91,8 +91,16 @@
       "noteType": "Basic",
       "description": "Create a new practice note for the user to study. Returns the new noteId — use update_tags if you need to categorise it immediately.",
       "fields": [
-        { "name": "Front", "description": "Front of the card (e.g. a word or question)", "required": true },
-        { "name": "Back", "description": "Back of the card (e.g. definition, translation, or answer)", "required": true }
+        {
+          "name": "Front",
+          "description": "Front of the card (e.g. a word or question)",
+          "required": true
+        },
+        {
+          "name": "Back",
+          "description": "Back of the card (e.g. definition, translation, or answer)",
+          "required": true
+        }
       ],
       "rejectDuplicates": "Front",
       "allowedTags": ["easy", "difficult", "needs-review", "mastered"],

@@ -67,7 +67,10 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   // Include parameter — built from optionalReturnedFields
   if (preset.optionalReturnedFields.length > 0 || preset.optionalReturnedTags) {
     const shape: Record<string, z.ZodTypeAny> = {
-      noteId: z.boolean().optional().describe("Include note IDs (required if you plan to call update_tags on these notes)"),
+      noteId: z
+        .boolean()
+        .optional()
+        .describe("Include note IDs (required if you plan to call update_tags on these notes)"),
     };
     for (const field of preset.optionalReturnedFields) {
       shape[field] = z.boolean().optional().describe(`Include ${field}`);
@@ -109,7 +112,9 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   params.page = z
     .number()
     .optional()
-    .describe("Page number (default 1). Check hasMore in the response to determine if additional pages exist.");
+    .describe(
+      "Page number (default 1). Check hasMore in the response to determine if additional pages exist.",
+    );
 
   // Handler
   const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -291,7 +296,8 @@ function buildUpdateTagsTool(): GeneratedTool {
 
   return {
     name: "update_tags",
-    description: "Add or remove tags on one or more notes by note ID. To get note IDs, call a search tool with include: { noteId: true } first.",
+    description:
+      "Add or remove tags on one or more notes by note ID. To get note IDs, call a search tool with include: { noteId: true } first.",
     params,
     handler,
   };

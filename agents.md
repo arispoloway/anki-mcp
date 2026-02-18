@@ -142,6 +142,14 @@ bun install
 bun start
 ```
 
+Before committing, make sure tests, formatting, and linting are all clean:
+
+```bash
+bun test                        # all tests must pass
+bun run --bun biome format --write .  # auto-fix formatting
+bun run --bun biome check .     # no errors (the pre-existing noNonNullAssertion warning in index.ts is acceptable)
+```
+
 ## Gotchas
 
 - **Anki must be open.** If Anki isn't running, all tool calls will fail with connection errors.
