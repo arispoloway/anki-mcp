@@ -100,7 +100,9 @@ describe("preset tool: struggling (with scheduling data)", () => {
   const tool = byName("struggling");
 
   test("has correct description", () => {
-    expect(tool.description).toBe("Struggling notes with scheduling.");
+    expect(tool.description).toStartWith("Struggling notes with scheduling.");
+    expect(tool.description).toContain("ease is x1000");
+    expect(tool.description).toContain("interval");
   });
 
   test("does not expose search parameter", () => {
