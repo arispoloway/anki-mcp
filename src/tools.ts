@@ -67,7 +67,7 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   // Include parameter — built from optionalReturnedFields
   if (preset.optionalReturnedFields.length > 0 || preset.optionalReturnedTags) {
     const shape: Record<string, z.ZodTypeAny> = {
-      noteId: z.boolean().optional().describe("Include note IDs"),
+      noteId: z.boolean().optional().describe("Include note IDs (required if you plan to call update_tags on these notes)"),
     };
     for (const field of preset.optionalReturnedFields) {
       shape[field] = z.boolean().optional().describe(`Include ${field}`);
@@ -109,7 +109,7 @@ function buildPresetTool(preset: Preset): GeneratedTool {
   params.page = z
     .number()
     .optional()
-    .describe("Page number (default 1). Use with limit for pagination.");
+    .describe("Page number (default 1). Check hasMore in the response to determine if additional pages exist.");
 
   // Handler
   const handler = async (args: Record<string, unknown>): Promise<ToolResult> => {
@@ -152,7 +152,13 @@ function buildPresetTool(preset: Preset): GeneratedTool {
     return textResult(result);
   };
 
-  return { name: preset.name, description: preset.description, params, handler };
+  let description = preset.description;
+  if (preset.includeSchedulingData) {
+    description +=
+      " Scheduling fields returned: ease is x1000 (e.g. 2500 = 250% ease factor). interval: negative = still in learning phase (absolute value in seconds); positive = review interval in days. lapses = number of times forgotten. reps = total reviews.";
+  }
+
+  return { name: preset.name, description, params, handler };
 }
 
 // ── Practice note tool generation ──
@@ -230,7 +236,7 @@ function buildPracticeTools(cfg: PracticeNotesConfig): GeneratedTool[] {
 
     tools.push({
       name: `list_${cfg.name}`,
-      description: `List all notes in the ${cfg.deckName} deck. Returns a flat list of ${cfg.fields.find((f) => f.required)?.name ?? "primary field"} values.`,
+      description: `List all notes in the ${cfg.deckName} deck. Returns a flat list of ${cfg.fields.find((f) => f.required)?.name ?? "primary field"} values. For filtered or paginated results, use a search tool instead.`,
       params: {},
       handler,
     });
@@ -285,7 +291,7 @@ function buildUpdateTagsTool(): GeneratedTool {
 
   return {
     name: "update_tags",
-    description: "Add or remove tags on one or more notes by note ID.",
+    description: "Add or remove tags on one or more notes by note ID. To get note IDs, call a search tool with include: { noteId: true } first.",
     params,
     handler,
   };

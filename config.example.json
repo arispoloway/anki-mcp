@@ -10,7 +10,7 @@
   "presets": [
     {
       "name": "search_notes",
-      "description": "Search notes using a search term. Searches across the front and back fields. Leave the search empty to browse all notes.",
+      "description": "Search notes by keyword. Leave search empty to browse all notes. Returns paginated results — check hasMore to fetch additional pages.",
       "baseQuery": "\"deck:My Deck\"",
       "noteType": "Basic",
       "searchFields": ["Front", "Back"],
@@ -24,8 +24,23 @@
       "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
     },
     {
+      "name": "due_today",
+      "description": "Get notes with cards due for review today or overdue. Use this to understand what the user needs to study in their current session, or to gauge their review workload.",
+      "baseQuery": "\"deck:My Deck\" is:due",
+      "noteType": "Basic",
+      "searchFields": ["Front"],
+      "searchDescription": "Optional word or phrase to filter due cards by front field.",
+      "tagFilters": [],
+      "defaultReturnedFields": ["Front"],
+      "optionalReturnedFields": ["Back"],
+      "optionalReturnedTags": true,
+      "defaultLimit": 50,
+      "defaultSort": "added_asc",
+      "sortOptions": ["added_asc", "added_desc", "modified_asc", "modified_desc"]
+    },
+    {
       "name": "recently_learned",
-      "description": "Get notes the user started learning recently. Defaults to the last 7 days.",
+      "description": "Get notes the user first encountered recently (newly introduced to the Anki scheduler). Useful for understanding new vocabulary in context or reinforcing recent learning. Defaults to the last 7 days.",
       "baseQuery": "\"deck:My Deck\" introduced:${days}",
       "noteType": "Basic",
       "parameters": {
@@ -46,7 +61,7 @@
     },
     {
       "name": "struggling_notes",
-      "description": "Get notes the user is struggling with — ones they frequently forget or find difficult. Returns review stats (interval, ease, lapses, reps).",
+      "description": "Get notes the user is struggling with — ones they frequently forget or find difficult. Sorted by lapses by default. Use this to identify vocabulary that needs extra attention, mnemonic support, or alternative explanations.",
       "baseQuery": "\"deck:My Deck\" (prop:lapses>3 OR prop:ease<2.0) is:review",
       "noteType": "Basic",
       "searchFields": [],
@@ -74,12 +89,13 @@
       "name": "practice_note",
       "deckName": "GeneratedPractice",
       "noteType": "Basic",
-      "description": "Create a new practice note for the user to study.",
+      "description": "Create a new practice note for the user to study. Returns the new noteId — use update_tags if you need to categorise it immediately.",
       "fields": [
-        { "name": "Front", "description": "Front of the card", "required": true },
-        { "name": "Back", "description": "Back of the card", "required": true }
+        { "name": "Front", "description": "Front of the card (e.g. a word or question)", "required": true },
+        { "name": "Back", "description": "Back of the card (e.g. definition, translation, or answer)", "required": true }
       ],
-      "allowedTags": [],
+      "rejectDuplicates": "Front",
+      "allowedTags": ["easy", "difficult", "needs-review", "mastered"],
       "defaultTag": "generated"
     }
   ]
